@@ -10,7 +10,7 @@ html = r"""<!DOCTYPE html>
 
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 
-<title>Cube Plumber Bros v9</title>
+<title>Cube Plumber Bros v10</title>
 
 <style>
 
@@ -20,7 +20,7 @@ html = r"""<!DOCTYPE html>
 
   #game{position:fixed;inset:0;overflow:hidden;background:linear-gradient(#7db8ea 0%,#d7f0ff 100%)}
 
-  #world{position:absolute;left:0;top:0;height:100%;width:6600px;transform:translateX(0)}
+  #world{position:absolute;left:0;top:0;height:100%;width:7600px;transform:translateX(0)}
 
   .groundSeg,.platform,.pipe,.pipeEntry,.coin,.spike,.enemy,.player,.flagpole,.flag,.bush,.cloud,.hill,.qblock,.brick,.mushroom,.flower,.fireball,.boss,.hiddenBlock,.subSign,.bossShot{position:absolute}
 
@@ -132,15 +132,25 @@ html = r"""<!DOCTYPE html>
 
   .subSign{padding:6px 10px;background:#ffffffcc;border-radius:12px;font-weight:800;color:#264}
 
-  #titleScreen{position:fixed;inset:0;z-index:100;background:linear-gradient(#69a8de,#bfe8ff);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:18px}
+  #titleScreen,#levelSelect,#pauseScreen{position:fixed;inset:0;z-index:100;background:linear-gradient(#69a8de,#bfe8ff);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:18px}
 
-  #titleCard{background:#ffffffdd;border-radius:28px;padding:22px 26px;text-align:center;box-shadow:0 12px 28px rgba(0,0,0,.22);max-width:86vw}
+  #pauseScreen{display:none;background:rgba(20,30,45,.72);backdrop-filter:blur(2px);z-index:110}
 
-  #titleCard h1{margin:0 0 8px;font-size:34px}
+  .card{background:#ffffffdd;border-radius:28px;padding:22px 26px;text-align:center;box-shadow:0 12px 28px rgba(0,0,0,.22);max-width:88vw}
 
-  #titleCard p{margin:8px 0;font-weight:700}
+  .card h1,.card h2{margin:0 0 8px}
 
-  .startBtn{padding:14px 22px;border-radius:18px;border:none;background:#e53935;color:#fff;font-size:20px;font-weight:900}
+  .card p{margin:8px 0;font-weight:700}
+
+  .menuBtns{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+
+  .startBtn,.levelBtn{padding:14px 22px;border-radius:18px;border:none;background:#e53935;color:#fff;font-size:20px;font-weight:900}
+
+  .levelBtn{background:#2f6fdd}
+
+  .locked{opacity:.55}
+
+  #levelSelect{display:none}
 
   #hud{position:fixed;left:0;right:0;top:0;display:flex;justify-content:space-between;padding:max(12px,env(safe-area-inset-top)) 12px 0 12px;z-index:50;pointer-events:none}
 
@@ -158,7 +168,7 @@ html = r"""<!DOCTYPE html>
 
   #actionBtn{background:rgba(255,170,0,.58)}
 
-  @media (max-width:700px){#titleCard h1{font-size:28px}#banner{top:16%;font-size:15px}.pill{font-size:16px;padding:10px 14px}.btn{width:72px;height:72px}}
+  @media (max-width:700px){.card h1,.card h2{font-size:28px}#banner{top:16%;font-size:15px}.pill{font-size:16px;padding:10px 14px}.btn{width:72px;height:72px}}
 
 </style>
 
@@ -172,13 +182,13 @@ html = r"""<!DOCTYPE html>
 
   <div id="hud">
 
-    <div class="pill" id="leftHud">Pièces: 0 • Score: 0</div>
+    <div class="pill" id="leftHud">Pièces: 0 • Score: 0 • Meilleur: 0</div>
 
-    <div class="pill" id="rightHud">Petit • Vies: 3 • Temps: 300</div>
+    <div class="pill" id="rightHud">Monde 1 • Petit • Vies: 3 • Temps: 300</div>
 
   </div>
 
-  <div id="banner">v9 • score + timer + boss à projectiles + mini musique 🎵</div>
+  <div id="banner">v10 • meilleur score + sélection de niveau + 2 mondes 🌍</div>
 
   <div id="msg"></div>
 
@@ -204,17 +214,65 @@ html = r"""<!DOCTYPE html>
 
   <div id="titleScreen">
 
-    <div id="titleCard">
+    <div class="card">
 
       <h1>Cube Plumber Bros</h1>
 
-      <p>Version 9</p>
+      <p>Version 10</p>
 
-      <p>Score, timer, boss avec projectiles et petite musique rétro générée.</p>
+      <p>Meilleur score sauvegardé, sélection de niveau, deux mondes et pause.</p>
 
-      <p>Action: <b>F</b> ou <b>●</b></p>
+      <div class="menuBtns">
 
-      <button class="startBtn" id="startBtn">Commencer</button>
+        <button class="startBtn" id="startBtn">Jouer</button>
+
+        <button class="levelBtn" id="openLevelBtn">Niveaux</button>
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <div id="levelSelect">
+
+    <div class="card">
+
+      <h2>Sélection du monde</h2>
+
+      <p id="unlockText">Monde 1 débloqué</p>
+
+      <div class="menuBtns">
+
+        <button class="levelBtn" id="world1Btn">Monde 1</button>
+
+        <button class="levelBtn locked" id="world2Btn">Monde 2</button>
+
+      </div>
+
+      <div class="menuBtns" style="margin-top:10px">
+
+        <button class="startBtn" id="backTitleBtn">Retour</button>
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <div id="pauseScreen">
+
+    <div class="card">
+
+      <h2>Pause</h2>
+
+      <p>Appuie sur P pour reprendre.</p>
+
+      <div class="menuBtns">
+
+        <button class="startBtn" id="resumeBtn">Reprendre</button>
+
+      </div>
 
     </div>
 
@@ -238,9 +296,17 @@ html = r"""<!DOCTYPE html>
 
   const titleScreen = document.getElementById('titleScreen');
 
+  const levelSelect = document.getElementById('levelSelect');
+
+  const pauseScreen = document.getElementById('pauseScreen');
+
+  const world2Btn = document.getElementById('world2Btn');
+
+  const unlockText = document.getElementById('unlockText');
+
   const groundY = Math.min(window.innerHeight - 92, 660);
 
-  const worldW = 6600;
+  const worldW = 7600;
 
   const checkpoint = {x:80,y:groundY-58};
 
@@ -252,11 +318,15 @@ html = r"""<!DOCTYPE html>
 
   let audioCtx = null;
 
-  let musicOsc = null;
-
-  let musicGain = null;
-
   let musicTimer = null;
+
+  let currentWorld = 1;
+
+  let bestScore = Number(localStorage.getItem('cube_plumber_best_score') || 0);
+
+  let unlockedWorld2 = localStorage.getItem('cube_plumber_world2_unlocked') === '1';
+
+  let gamePaused = false;
 
   function ensureMusic(){
 
@@ -268,25 +338,25 @@ html = r"""<!DOCTYPE html>
 
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-      musicGain = audioCtx.createGain();
+      const master = audioCtx.createGain();
 
-      musicGain.gain.value = 0.015;
+      master.gain.value = 0.015;
 
-      musicGain.connect(audioCtx.destination);
+      master.connect(audioCtx.destination);
 
-      const notes = [261.63,329.63,392.00,523.25,392.00,329.63,261.63,196.00];
+      const notes = [261.63,329.63,392.0,523.25,392.0,329.63,261.63,196.0];
 
       let i = 0;
 
       musicTimer = setInterval(()=>{
 
-        if(titleScreen.style.display !== 'none') return;
+        if(titleScreen.style.display !== 'none' || levelSelect.style.display !== 'none' || gamePaused) return;
 
         const osc = audioCtx.createOscillator();
 
         const gain = audioCtx.createGain();
 
-        osc.type = 'square';
+        osc.type = i % 2 === 0 ? 'square' : 'triangle';
 
         osc.frequency.value = notes[i % notes.length];
 
@@ -294,7 +364,7 @@ html = r"""<!DOCTYPE html>
 
         osc.connect(gain);
 
-        gain.connect(musicGain);
+        gain.connect(master);
 
         osc.start();
 
@@ -306,11 +376,17 @@ html = r"""<!DOCTYPE html>
 
       }, 220);
 
-    }catch(e){
+    }catch(e){}
 
-      console.log('audio disabled', e);
+  }
 
-    }
+  function updateMenu(){
+
+    unlockText.textContent = unlockedWorld2 ? 'Monde 1 et Monde 2 débloqués' : 'Monde 2 se débloque après avoir fini le Monde 1';
+
+    world2Btn.classList.toggle('locked', !unlockedWorld2);
+
+    world2Btn.disabled = !unlockedWorld2;
 
   }
 
@@ -350,17 +426,9 @@ html = r"""<!DOCTYPE html>
 
   function spawnBossShot(x,y,dir){ const el=make('div','bossShot',{left:x+'px',top:y+'px'}); bossShots.push({el,x,y,w:20,h:20,vx:dir*4.6,vy:-1.6,active:true}); }
 
-  function buildLevel(){
+  function buildWorld1(){
 
-    world.innerHTML='';
-
-    solids.length=spikes.length=coins.length=enemies.length=luckyBlocks.length=mushrooms.length=flowers.length=fireballs.length=pipes.length=hiddenBlocks.length=bosses.length=bossShots.length=0;
-
-    for(let i=0;i<11;i++) make('div','cloud',{left:(120+i*520)+'px',top:(70+(i%3)*42)+'px',width:(100+(i%2)*30)+'px',height:(44+(i%2)*10)+'px'});
-
-    for(let i=0;i<10;i++) make('div','hill',{left:(i*620+40)+'px',bottom:'110px',width:(180+(i%2)*40)+'px',height:(95+(i%2)*20)+'px'});
-
-    for(let i=0;i<28;i++) make('div','bush',{left:(i*210+40)+'px',bottom:'70px',width:(70+(i%3)*18)+'px',height:(30+(i%2)*8)+'px'});
+    const subBaseY = groundY + 170;
 
     [[0,430],[520,420],[1030,370],[1490,420],[2040,380],[2540,340],[3000,620],[3720,960],[4860,420],[5360,620],[6080,420]].forEach(([x,w])=>{
 
@@ -373,8 +441,6 @@ html = r"""<!DOCTYPE html>
       const el=make('div','platform',{left:x+'px',top:y+'px',width:w+'px',height:h+'px'}); solids.push(obj(el,x,y,w,h,'platform'));
 
     });
-
-    const subBaseY = groundY + 170;
 
     [[1200,subBaseY,420,24],[1700,subBaseY-90,140,24],[1940,subBaseY-170,140,24],[2160,subBaseY-250,140,24],[2390,subBaseY-170,140,24],[2620,subBaseY-90,140,24],[2860,subBaseY,380,24]].forEach(([x,y,w,h])=>{
 
@@ -424,33 +490,137 @@ html = r"""<!DOCTYPE html>
 
     const bossEl = make('div','boss',{left:'5660px',top:(groundY-100)+'px'}, '<div class="hpBar"><div class="hpFill"></div></div><div class="mouth"></div>');
 
-    bosses.push({el:bossEl,x:5660,y:groundY-100,w:110,h:100,minX:5560,maxX:5960,vx:1.55,active:true,hp:8,cooldown:85,type:'boss'});
+    bosses.push({el:bossEl,x:5660,y:groundY-100,w:110,h:100,minX:5560,maxX:5960,vx:1.55,active:true,hp:8,maxHp:8,cooldown:85,type:'boss'});
 
     make('div','flagpole',{left:'6480px',top:(groundY-220)+'px',height:'220px'});
 
     make('div','flag',{left:'6490px',top:(groundY-208)+'px'});
 
-    playerEl=make('div','player',{left:checkpoint.x+'px',top:checkpoint.y+'px'},'<div class="hatTop"></div><div class="hatBrim"></div><div class="head"></div><div class="body"></div><div class="overalls"></div><div class="armL"></div><div class="armR"></div><div class="shoeL"></div><div class="shoeR"></div><div class="eyeL"></div><div class="eyeR"></div><div class="moust"></div>');
+  }
+
+  function buildWorld2(){
+
+    [[0,360],[430,240],[760,380],[1260,320],[1710,260],[2080,520],[2720,380],[3190,260],[3570,420],[4120,300],[4510,420],[5100,320],[5500,450],[6120,520],[6780,500]].forEach(([x,w])=>{
+
+      const el=make('div','groundSeg',{left:x+'px',top:groundY+'px',width:w+'px'}); solids.push(obj(el,x,groundY,w,110,'ground'));
+
+    });
+
+    [[260,groundY-160,120,24],[520,groundY-280,120,24],[930,groundY-220,120,24],[1100,groundY-350,120,24],[1450,groundY-220,120,24],[1880,groundY-180,120,24],[2260,groundY-310,120,24],[2460,groundY-430,120,24],[2940,groundY-180,120,24],[3320,groundY-300,120,24],[3700,groundY-420,120,24],[4300,groundY-220,120,24],[4690,groundY-340,120,24],[5200,groundY-200,120,24],[5680,groundY-320,120,24],[6200,groundY-430,120,24],[7000,groundY-220,120,24]].forEach(([x,y,w,h])=>{
+
+      const el=make('div','platform',{left:x+'px',top:y+'px',width:w+'px',height:h+'px'}); solids.push(obj(el,x,y,w,h,'platform'));
+
+    });
+
+    addPipe(1180,groundY-120,90,120,true,3330,groundY-58);
+
+    addPipe(5250,groundY-120,90,120,true,1400,groundY-58);
+
+    addLucky(515, groundY-460, 'mushroom');
+
+    addLucky(2420, groundY-560, 'flower');
+
+    addLucky(6200, groundY-550, 'flower');
+
+    addBreakable(4670, groundY-460);
+
+    addBreakable(4718, groundY-460);
+
+    addHidden(3960, groundY-260, 'coin');
+
+    addHidden(4008, groundY-308, 'flower');
+
+    [[385,groundY-34],[792,groundY-34],[824,groundY-34],[1200,groundY-34],[1510,groundY-34],[2110,groundY-34],[2142,groundY-34],[2780,groundY-34],[2812,groundY-34],[3400,groundY-34],[3432,groundY-34],[4470,groundY-34],[4502,groundY-34],[5870,groundY-34],[5902,groundY-34],[6600,groundY-34],[6632,groundY-34]].forEach(([x,y])=>{
+
+      const el=make('div','spike',{left:x+'px',top:y+'px'}); spikes.push(obj(el,x,y,32,34,'spike'));
+
+    });
+
+    [[290,groundY-210],[550,groundY-330],[960,groundY-270],[1130,groundY-400],[1480,groundY-270],[1910,groundY-230],[2290,groundY-360],[2490,groundY-480],[2970,groundY-230],[3350,groundY-350],[3730,groundY-470],[4330,groundY-270],[4720,groundY-390],[5230,groundY-250],[5710,groundY-370],[6230,groundY-480],[7030,groundY-270]].forEach(([x,y])=>{
+
+      const el=make('div','coin',{left:x+'px',top:y+'px'}); coins.push(obj(el,x,y,24,24,'coin'));
+
+    });
+
+    [[800,groundY-38,760,1030],[1480,groundY-258,1450,1570],[2290,groundY-348,2260,2380],[2970,groundY-218,2940,3060],[4330,groundY-258,4300,4420],[5230,groundY-238,5200,5320],[6230,groundY-468,6200,6320],[7030,groundY-258,7000,7120]].forEach(([x,y,minX,maxX])=>{
+
+      const el=make('div','enemy',{left:x+'px',top:y+'px'},'<div class="mouth"></div>'); enemies.push({el,x,y,w:42,h:38,minX,maxX,vx:1.35,active:true,hp:1,type:'enemy'});
+
+    });
+
+    const bossEl = make('div','boss',{left:'6420px',top:(groundY-100)+'px'}, '<div class="hpBar"><div class="hpFill"></div></div><div class="mouth"></div>');
+
+    bosses.push({el:bossEl,x:6420,y:groundY-100,w:110,h:100,minX:6320,maxX:6900,vx:1.9,active:true,hp:12,maxHp:12,cooldown:55,type:'boss'});
+
+    make('div','flagpole',{left:'7360px',top:(groundY-220)+'px',height:'220px'});
+
+    make('div','flag',{left:'7370px',top:(groundY-208)+'px'});
 
   }
 
-  buildLevel();
+  function populateBackground(){
+
+    for(let i=0;i<12;i++) make('div','cloud',{left:(120+i*580)+'px',top:(60+(i%3)*44)+'px',width:(100+(i%2)*34)+'px',height:(44+(i%2)*10)+'px'});
+
+    for(let i=0;i<12;i++) make('div','hill',{left:(i*620+40)+'px',bottom:'110px',width:(180+(i%2)*40)+'px',height:(95+(i%2)*20)+'px'});
+
+    for(let i=0;i<34;i++) make('div','bush',{left:(i*220+20)+'px',bottom:'70px',width:(70+(i%3)*18)+'px',height:(30+(i%2)*8)+'px'});
+
+  }
+
+  function buildLevel(which){
+
+    world.innerHTML='';
+
+    solids.length=spikes.length=coins.length=enemies.length=luckyBlocks.length=mushrooms.length=flowers.length=fireballs.length=pipes.length=hiddenBlocks.length=bosses.length=bossShots.length=0;
+
+    currentWorld = which;
+
+    populateBackground();
+
+    if(which === 1) buildWorld1(); else buildWorld2();
+
+    playerEl=make('div','player',{left:checkpoint.x+'px',top:checkpoint.y+'px'},'<div class="hatTop"></div><div class="hatBrim"></div><div class="head"></div><div class="body"></div><div class="overalls"></div><div class="armL"></div><div class="armR"></div><div class="shoeL"></div><div class="shoeR"></div><div class="eyeL"></div><div class="eyeR"></div><div class="moust"></div>');
+
+  }
 
   const state={x:checkpoint.x,y:checkpoint.y,w:42,h:58,vx:0,vy:0,face:1,left:false,right:false,up:false,action:false,onGround:false,coins:0,big:false,fire:false,lives:3,inv:0,won:false,inTransition:false,actionCooldown:0,score:0,time:300};
 
   let lastSecond = performance.now();
 
-  function updateHud(){
+  function saveBest(){
 
-    leftHud.textContent = `Pièces: ${state.coins} • Score: ${state.score}`;
+    if(state.score > bestScore){
 
-    const form = state.fire ? 'Fire 🌼' : state.big ? 'Grand 🍄' : 'Petit';
+      bestScore = state.score;
 
-    rightHud.textContent = `${form} • Vies: ${state.lives} • Temps: ${state.time}`;
+      localStorage.setItem('cube_plumber_best_score', String(bestScore));
+
+    }
 
   }
 
-  function addScore(n){ state.score += n; updateHud(); }
+  function unlockWorld2(){
+
+    unlockedWorld2 = true;
+
+    localStorage.setItem('cube_plumber_world2_unlocked', '1');
+
+    updateMenu();
+
+  }
+
+  function updateHud(){
+
+    leftHud.textContent = `Pièces: ${state.coins} • Score: ${state.score} • Meilleur: ${bestScore}`;
+
+    const form = state.fire ? 'Fire 🌼' : state.big ? 'Grand 🍄' : 'Petit';
+
+    rightHud.textContent = `Monde ${currentWorld} • ${form} • Vies: ${state.lives} • Temps: ${state.time}`;
+
+  }
+
+  function addScore(n){ state.score += n; saveBest(); updateHud(); }
 
   function applyLook(){ playerEl.classList.toggle('big', state.big || state.fire); playerEl.classList.toggle('fire', state.fire); }
 
@@ -470,9 +640,21 @@ html = r"""<!DOCTYPE html>
 
     if(code==='KeyF') setAction(val);
 
+    if(code==='KeyP' && val){
+
+      if(titleScreen.style.display==='none' && levelSelect.style.display==='none' && !state.won){
+
+        gamePaused = !gamePaused;
+
+        pauseScreen.style.display = gamePaused ? 'flex' : 'none';
+
+      }
+
+    }
+
   }
 
-  addEventListener('keydown', e=>{ bind(e.code,true); if(['ArrowLeft','ArrowRight','ArrowUp','Space','KeyF'].includes(e.code)) e.preventDefault(); }, {passive:false});
+  addEventListener('keydown', e=>{ bind(e.code,true); if(['ArrowLeft','ArrowRight','ArrowUp','Space','KeyF','KeyP'].includes(e.code)) e.preventDefault(); }, {passive:false});
 
   addEventListener('keyup', e=>bind(e.code,false));
 
@@ -492,7 +674,49 @@ html = r"""<!DOCTYPE html>
 
   hold('leftBtn','left'); hold('rightBtn','right'); hold('jumpBtn','up'); hold('actionBtn','action');
 
-  document.getElementById('startBtn').addEventListener('click', ()=>{ titleScreen.style.display='none'; ensureMusic(); });
+  function openTitle(){ titleScreen.style.display='flex'; levelSelect.style.display='none'; pauseScreen.style.display='none'; gamePaused = false; }
+
+  function openLevelSelect(){ titleScreen.style.display='none'; levelSelect.style.display='flex'; pauseScreen.style.display='none'; gamePaused = false; }
+
+  function startWorld(which){
+
+    buildLevel(which);
+
+    state.coins=0; state.big=false; state.fire=false; state.lives=3; state.inv=0; state.won=false; state.inTransition=false; state.actionCooldown=0; state.score=0; state.time=300;
+
+    applyLook();
+
+    state.x=checkpoint.x; state.y=checkpoint.y; state.vx=0; state.vy=0;
+
+    msg.style.display='none';
+
+    titleScreen.style.display='none';
+
+    levelSelect.style.display='none';
+
+    pauseScreen.style.display='none';
+
+    gamePaused = false;
+
+    lastSecond = performance.now();
+
+    updateHud();
+
+    ensureMusic();
+
+  }
+
+  document.getElementById('startBtn').addEventListener('click', ()=>startWorld(1));
+
+  document.getElementById('openLevelBtn').addEventListener('click', openLevelSelect);
+
+  document.getElementById('backTitleBtn').addEventListener('click', openTitle);
+
+  document.getElementById('world1Btn').addEventListener('click', ()=>startWorld(1));
+
+  document.getElementById('world2Btn').addEventListener('click', ()=>{ if(unlockedWorld2) startWorld(2); });
+
+  document.getElementById('resumeBtn').addEventListener('click', ()=>{ gamePaused = false; pauseScreen.style.display='none'; });
 
   function bump(el){ const old=el.style.transform||''; el.style.transform='translateY(-8px)'; setTimeout(()=>el.style.transform=old,90); }
 
@@ -508,7 +732,7 @@ html = r"""<!DOCTYPE html>
 
     state.lives--; updateHud();
 
-    if(state.lives<=0){ msg.style.display='block'; msg.innerHTML='Game over 💀<br>Tape pour recommencer'; state.won=true; }
+    if(state.lives<=0){ msg.style.display='block'; msg.innerHTML='Game over 💀<br>Tape pour recommencer'; state.won=true; saveBest(); }
 
     else { state.inv=90; respawn(); }
 
@@ -526,15 +750,9 @@ html = r"""<!DOCTYPE html>
 
   }
 
-  function resetAll(){
+  function resetCurrentWorld(){ startWorld(currentWorld); }
 
-    state.coins=0; state.big=false; state.fire=false; state.lives=3; state.inv=0; state.won=false; state.inTransition=false; state.actionCooldown=0; state.score=0; state.time=300;
-
-    buildLevel(); applyLook(); updateHud(); respawn(); msg.style.display='none'; titleScreen.style.display='flex'; lastSecond = performance.now();
-
-  }
-
-  addEventListener('pointerdown', ()=>{ if(state.won) resetAll(); }, {passive:true});
+  addEventListener('pointerdown', ()=>{ if(state.won) resetCurrentWorld(); }, {passive:true});
 
   function enterPipe(){
 
@@ -568,7 +786,7 @@ html = r"""<!DOCTYPE html>
 
   function tryAction(){
 
-    if(state.actionCooldown>0 || state.won || state.inTransition) return;
+    if(state.actionCooldown>0 || state.won || state.inTransition || gamePaused) return;
 
     if(state.fire){
 
@@ -600,19 +818,13 @@ html = r"""<!DOCTYPE html>
 
         if(hitFromBelow){
 
-          s.revealed=true;
-
-          s.el.classList.add('revealed');
-
-          bump(s.el);
+          s.revealed=true; s.el.classList.add('revealed'); bump(s.el);
 
           if(s.drop==='coin'){ spawnCoin(s.x+12, s.y-28); addScore(200); }
 
           if(s.drop==='flower'){ spawnFlower(s.x+7, s.y-42); }
 
-          state.y = s.y + s.h;
-
-          state.vy = 0;
+          state.y=s.y+s.h; state.vy=0;
 
         }
 
@@ -758,7 +970,7 @@ html = r"""<!DOCTYPE html>
 
           const fill = b.el.querySelector('.hpFill');
 
-          if(fill) fill.style.width = Math.max(0, (b.hp/8)*100) + '%';
+          if(fill) fill.style.width = Math.max(0, (b.hp/b.maxHp)*100) + '%';
 
           b.el.style.transform='translateY(-8px)';
 
@@ -784,9 +996,7 @@ html = r"""<!DOCTYPE html>
 
       if(!s.active) continue;
 
-      s.vy += 0.12;
-
-      s.x += s.vx; s.y += s.vy;
+      s.vy += 0.12; s.x += s.vx; s.y += s.vy;
 
       const box={x:s.x,y:s.y,w:s.w,h:s.h};
 
@@ -850,7 +1060,7 @@ html = r"""<!DOCTYPE html>
 
         spawnBossShot(b.x + (dir===1? b.w : -10), b.y + 34, dir);
 
-        b.cooldown = 80;
+        b.cooldown = currentWorld === 2 ? 45 : 80;
 
       }
 
@@ -870,7 +1080,7 @@ html = r"""<!DOCTYPE html>
 
   function updateTimer(now){
 
-    if(titleScreen.style.display !== 'none' || state.won) { lastSecond = now; return; }
+    if(titleScreen.style.display !== 'none' || levelSelect.style.display !== 'none' || state.won || gamePaused) { lastSecond = now; return; }
 
     if(now - lastSecond >= 1000){
 
@@ -888,13 +1098,41 @@ html = r"""<!DOCTYPE html>
 
   }
 
+  function finishWorld(){
+
+    state.won = true;
+
+    addScore(state.time * 20);
+
+    if(currentWorld === 1){
+
+      unlockWorld2();
+
+      msg.style.display='block';
+
+      msg.innerHTML='Monde 1 fini 🎉<br>Monde 2 débloqué';
+
+    } else {
+
+      msg.style.display='block';
+
+      msg.innerHTML='Monde 2 fini 👑<br>Tu as complété la v10';
+
+    }
+
+    saveBest();
+
+    updateHud();
+
+  }
+
   function update(){
 
     const now = performance.now();
 
     updateTimer(now);
 
-    if(titleScreen.style.display !== 'none') return;
+    if(titleScreen.style.display !== 'none' || levelSelect.style.display !== 'none' || gamePaused) return;
 
     if(state.won) return;
 
@@ -924,7 +1162,7 @@ html = r"""<!DOCTYPE html>
 
     const a=playerBox();
 
-    coins.forEach(c=>{ if(c.active && hit(a,c)){ c.active=false; c.el.style.display='none'; state.coins++; addScore(100); updateHud(); }});
+    coins.forEach(c=>{ if(c.active && hit(a,c)){ c.active=false; c.el.style.display='none'; state.coins++; addScore(100); }});
 
     spikes.forEach(s=>{ if(s.active && hit(a,s)) damage(); });
 
@@ -942,17 +1180,9 @@ html = r"""<!DOCTYPE html>
 
     const bossAlive = bosses.some(b=>b.active);
 
-    if(state.x > 6440 && !bossAlive){
+    if((currentWorld === 1 && state.x > 6440 && !bossAlive) || (currentWorld === 2 && state.x > 7320 && !bossAlive)){
 
-      state.won=true;
-
-      addScore(state.time * 20);
-
-      msg.style.display='block';
-
-      msg.innerHTML='Boss battu 🎉<br>v9 terminée • Bonus temps ajouté';
-
-      updateHud();
+      finishWorld();
 
     }
 
@@ -972,7 +1202,13 @@ html = r"""<!DOCTYPE html>
 
   setTimeout(()=>banner.style.display='none',3300);
 
-  applyLook(); updateHud();
+  buildLevel(1);
+
+  applyLook();
+
+  updateMenu();
+
+  updateHud();
 
   function loop(){ update(); requestAnimationFrame(loop); }
 
@@ -988,7 +1224,7 @@ html = r"""<!DOCTYPE html>
 
 """
 
-path = Path("/mnt/data/cube_plumber_bros_v9.html")
+path = Path("/mnt/data/cube_plumber_bros_v10.html")
 
 path.write_text(html, encoding="utf-8")
 
