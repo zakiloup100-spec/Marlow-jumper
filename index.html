@@ -10,7 +10,7 @@ html = r"""<!DOCTYPE html>
 
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 
-<title>Cube Plumber Bros v10</title>
+<title>Cube Plumber Bros v11</title>
 
 <style>
 
@@ -102,6 +102,14 @@ html = r"""<!DOCTYPE html>
 
   .player.fire .overalls{background:#e53935}
 
+  .player.skin-luigi .hatTop,.player.skin-luigi .hatBrim,.player.skin-luigi .body{background:#2db84d}
+
+  .player.skin-luigi .overalls{background:#275fd9}
+
+  .player.skin-shadow .hatTop,.player.skin-shadow .hatBrim,.player.skin-shadow .body{background:#111}
+
+  .player.skin-shadow .overalls{background:#6d6d6d}
+
   .player .hatTop{position:absolute;left:4px;top:0;width:34px;height:10px;background:#cf2419}
 
   .player .hatBrim{position:absolute;left:2px;top:8px;width:24px;height:7px;background:#cf2419}
@@ -132,11 +140,13 @@ html = r"""<!DOCTYPE html>
 
   .subSign{padding:6px 10px;background:#ffffffcc;border-radius:12px;font-weight:800;color:#264}
 
-  #titleScreen,#levelSelect,#pauseScreen{position:fixed;inset:0;z-index:100;background:linear-gradient(#69a8de,#bfe8ff);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:18px}
+  #titleScreen,#levelSelect,#pauseScreen,#skinsScreen{position:fixed;inset:0;z-index:100;background:linear-gradient(#69a8de,#bfe8ff);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:18px}
 
   #pauseScreen{display:none;background:rgba(20,30,45,.72);backdrop-filter:blur(2px);z-index:110}
 
-  .card{background:#ffffffdd;border-radius:28px;padding:22px 26px;text-align:center;box-shadow:0 12px 28px rgba(0,0,0,.22);max-width:88vw}
+  #levelSelect,#skinsScreen{display:none}
+
+  .card{background:#ffffffdd;border-radius:28px;padding:22px 26px;text-align:center;box-shadow:0 12px 28px rgba(0,0,0,.22);max-width:90vw}
 
   .card h1,.card h2{margin:0 0 8px}
 
@@ -150,7 +160,11 @@ html = r"""<!DOCTYPE html>
 
   .locked{opacity:.55}
 
-  #levelSelect{display:none}
+  .skinPreviewWrap{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:8px}
+
+  .skinCard{background:#eef6ff;padding:12px;border-radius:18px;min-width:110px}
+
+  .miniPlayer{position:relative;width:42px;height:58px;margin:0 auto 8px auto;transform:scale(1.2);transform-origin:top center}
 
   #hud{position:fixed;left:0;right:0;top:0;display:flex;justify-content:space-between;padding:max(12px,env(safe-area-inset-top)) 12px 0 12px;z-index:50;pointer-events:none}
 
@@ -188,7 +202,7 @@ html = r"""<!DOCTYPE html>
 
   </div>
 
-  <div id="banner">v10 • meilleur score + sélection de niveau + 2 mondes 🌍</div>
+  <div id="banner">v11 • saut réparé + skins + game over stylé ✨</div>
 
   <div id="msg"></div>
 
@@ -218,15 +232,17 @@ html = r"""<!DOCTYPE html>
 
       <h1>Cube Plumber Bros</h1>
 
-      <p>Version 10</p>
+      <p>Version 11</p>
 
-      <p>Meilleur score sauvegardé, sélection de niveau, deux mondes et pause.</p>
+      <p>Saut réparé, skins et écran de fin plus stylé.</p>
 
       <div class="menuBtns">
 
         <button class="startBtn" id="startBtn">Jouer</button>
 
         <button class="levelBtn" id="openLevelBtn">Niveaux</button>
+
+        <button class="levelBtn" id="openSkinsBtn">Skins</button>
 
       </div>
 
@@ -253,6 +269,50 @@ html = r"""<!DOCTYPE html>
       <div class="menuBtns" style="margin-top:10px">
 
         <button class="startBtn" id="backTitleBtn">Retour</button>
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <div id="skinsScreen">
+
+    <div class="card">
+
+      <h2>Choix du skin</h2>
+
+      <div class="skinPreviewWrap">
+
+        <div class="skinCard">
+
+          <div class="miniPlayer" id="skinMario"></div>
+
+          <button class="levelBtn" data-skin="mario">Mario</button>
+
+        </div>
+
+        <div class="skinCard">
+
+          <div class="miniPlayer skin-luigi" id="skinLuigi"></div>
+
+          <button class="levelBtn" data-skin="luigi">Luigi</button>
+
+        </div>
+
+        <div class="skinCard">
+
+          <div class="miniPlayer skin-shadow" id="skinShadow"></div>
+
+          <button class="levelBtn" data-skin="shadow">Shadow</button>
+
+        </div>
+
+      </div>
+
+      <div class="menuBtns" style="margin-top:12px">
+
+        <button class="startBtn" id="backFromSkinsBtn">Retour</button>
 
       </div>
 
@@ -298,6 +358,8 @@ html = r"""<!DOCTYPE html>
 
   const levelSelect = document.getElementById('levelSelect');
 
+  const skinsScreen = document.getElementById('skinsScreen');
+
   const pauseScreen = document.getElementById('pauseScreen');
 
   const world2Btn = document.getElementById('world2Btn');
@@ -326,7 +388,25 @@ html = r"""<!DOCTYPE html>
 
   let unlockedWorld2 = localStorage.getItem('cube_plumber_world2_unlocked') === '1';
 
+  let selectedSkin = localStorage.getItem('cube_plumber_skin') || 'mario';
+
   let gamePaused = false;
+
+  function createMiniPlayer(targetId, cls=''){
+
+    const el = document.getElementById(targetId);
+
+    el.className = 'miniPlayer' + (cls ? ' ' + cls : '');
+
+    el.innerHTML = '<div class="hatTop"></div><div class="hatBrim"></div><div class="head"></div><div class="body"></div><div class="overalls"></div><div class="armL"></div><div class="armR"></div><div class="shoeL"></div><div class="shoeR"></div><div class="eyeL"></div><div class="eyeR"></div><div class="moust"></div>';
+
+  }
+
+  createMiniPlayer('skinMario');
+
+  createMiniPlayer('skinLuigi','skin-luigi');
+
+  createMiniPlayer('skinShadow','skin-shadow');
 
   function ensureMusic(){
 
@@ -350,7 +430,7 @@ html = r"""<!DOCTYPE html>
 
       musicTimer = setInterval(()=>{
 
-        if(titleScreen.style.display !== 'none' || levelSelect.style.display !== 'none' || gamePaused) return;
+        if(titleScreen.style.display !== 'none' || levelSelect.style.display !== 'none' || skinsScreen.style.display !== 'none' || gamePaused) return;
 
         const osc = audioCtx.createOscillator();
 
@@ -584,9 +664,11 @@ html = r"""<!DOCTYPE html>
 
   }
 
-  const state={x:checkpoint.x,y:checkpoint.y,w:42,h:58,vx:0,vy:0,face:1,left:false,right:false,up:false,action:false,onGround:false,coins:0,big:false,fire:false,lives:3,inv:0,won:false,inTransition:false,actionCooldown:0,score:0,time:300};
+  const state={x:checkpoint.x,y:checkpoint.y,w:42,h:58,vx:0,vy:0,face:1,left:false,right:false,up:false,action:false,onGround:false,canJump:false,coins:0,big:false,fire:false,lives:3,inv:0,won:false,inTransition:false,actionCooldown:0,score:0,time:300};
 
   let lastSecond = performance.now();
+
+  let jumpLatch = false;
 
   function saveBest(){
 
@@ -610,6 +692,18 @@ html = r"""<!DOCTYPE html>
 
   }
 
+  function applySkin(){
+
+    if(!playerEl) return;
+
+    playerEl.classList.remove('skin-luigi','skin-shadow');
+
+    if(selectedSkin === 'luigi') playerEl.classList.add('skin-luigi');
+
+    if(selectedSkin === 'shadow') playerEl.classList.add('skin-shadow');
+
+  }
+
   function updateHud(){
 
     leftHud.textContent = `Pièces: ${state.coins} • Score: ${state.score} • Meilleur: ${bestScore}`;
@@ -622,7 +716,7 @@ html = r"""<!DOCTYPE html>
 
   function addScore(n){ state.score += n; saveBest(); updateHud(); }
 
-  function applyLook(){ playerEl.classList.toggle('big', state.big || state.fire); playerEl.classList.toggle('fire', state.fire); }
+  function applyLook(){ playerEl.classList.toggle('big', state.big || state.fire); playerEl.classList.toggle('fire', state.fire); applySkin(); }
 
   function playerBox(){ return {x:state.x,y:state.y,w:state.w,h:state.h}; }
 
@@ -642,7 +736,7 @@ html = r"""<!DOCTYPE html>
 
     if(code==='KeyP' && val){
 
-      if(titleScreen.style.display==='none' && levelSelect.style.display==='none' && !state.won){
+      if(titleScreen.style.display==='none' && levelSelect.style.display==='none' && skinsScreen.style.display==='none' && !state.won){
 
         gamePaused = !gamePaused;
 
@@ -674,15 +768,17 @@ html = r"""<!DOCTYPE html>
 
   hold('leftBtn','left'); hold('rightBtn','right'); hold('jumpBtn','up'); hold('actionBtn','action');
 
-  function openTitle(){ titleScreen.style.display='flex'; levelSelect.style.display='none'; pauseScreen.style.display='none'; gamePaused = false; }
+  function openTitle(){ titleScreen.style.display='flex'; levelSelect.style.display='none'; skinsScreen.style.display='none'; pauseScreen.style.display='none'; gamePaused = false; }
 
-  function openLevelSelect(){ titleScreen.style.display='none'; levelSelect.style.display='flex'; pauseScreen.style.display='none'; gamePaused = false; }
+  function openLevelSelect(){ titleScreen.style.display='none'; levelSelect.style.display='flex'; skinsScreen.style.display='none'; pauseScreen.style.display='none'; gamePaused = false; }
+
+  function openSkins(){ titleScreen.style.display='none'; levelSelect.style.display='none'; skinsScreen.style.display='flex'; pauseScreen.style.display='none'; gamePaused = false; }
 
   function startWorld(which){
 
     buildLevel(which);
 
-    state.coins=0; state.big=false; state.fire=false; state.lives=3; state.inv=0; state.won=false; state.inTransition=false; state.actionCooldown=0; state.score=0; state.time=300;
+    state.coins=0; state.big=false; state.fire=false; state.lives=3; state.inv=0; state.won=false; state.inTransition=false; state.actionCooldown=0; state.score=0; state.time=300; state.canJump=false;
 
     applyLook();
 
@@ -693,6 +789,8 @@ html = r"""<!DOCTYPE html>
     titleScreen.style.display='none';
 
     levelSelect.style.display='none';
+
+    skinsScreen.style.display='none';
 
     pauseScreen.style.display='none';
 
@@ -710,13 +808,31 @@ html = r"""<!DOCTYPE html>
 
   document.getElementById('openLevelBtn').addEventListener('click', openLevelSelect);
 
+  document.getElementById('openSkinsBtn').addEventListener('click', openSkins);
+
   document.getElementById('backTitleBtn').addEventListener('click', openTitle);
+
+  document.getElementById('backFromSkinsBtn').addEventListener('click', openTitle);
 
   document.getElementById('world1Btn').addEventListener('click', ()=>startWorld(1));
 
   document.getElementById('world2Btn').addEventListener('click', ()=>{ if(unlockedWorld2) startWorld(2); });
 
   document.getElementById('resumeBtn').addEventListener('click', ()=>{ gamePaused = false; pauseScreen.style.display='none'; });
+
+  document.querySelectorAll('[data-skin]').forEach(btn=>{
+
+    btn.addEventListener('click', ()=>{
+
+      selectedSkin = btn.getAttribute('data-skin');
+
+      localStorage.setItem('cube_plumber_skin', selectedSkin);
+
+      applySkin();
+
+    });
+
+  });
 
   function bump(el){ const old=el.style.transform||''; el.style.transform='translateY(-8px)'; setTimeout(()=>el.style.transform=old,90); }
 
@@ -726,13 +842,21 @@ html = r"""<!DOCTYPE html>
 
   function giveFlower(){ if(!state.big) growPlayer(); state.fire=true; applyLook(); updateHud(); addScore(1500); }
 
-  function respawn(){ state.x=checkpoint.x; state.y=groundY-((state.big||state.fire)?76:58); state.vx=0; state.vy=0; state.inTransition=false; }
+  function respawn(){ state.x=checkpoint.x; state.y=groundY-((state.big||state.fire)?76:58); state.vx=0; state.vy=0; state.inTransition=false; state.canJump=false; }
+
+  function showEndCard(title, subtitle, btnText='Rejouer'){
+
+    msg.style.display='block';
+
+    msg.innerHTML = `<div style="font-size:28px;margin-bottom:10px">${title}</div><div style="margin-bottom:12px">${subtitle}</div><div style="font-size:14px;opacity:.9">Tape l’écran pour ${btnText.toLowerCase()}</div>`;
+
+  }
 
   function loseLife(){
 
     state.lives--; updateHud();
 
-    if(state.lives<=0){ msg.style.display='block'; msg.innerHTML='Game over 💀<br>Tape pour recommencer'; state.won=true; saveBest(); }
+    if(state.lives<=0){ state.won=true; saveBest(); showEndCard('💀 Game Over', `Score: ${state.score} • Meilleur: ${bestScore}`, 'rejouer'); }
 
     else { state.inv=90; respawn(); }
 
@@ -844,7 +968,7 @@ html = r"""<!DOCTYPE html>
 
         if(state.vy>0){
 
-          state.y=s.y-state.h; state.vy=0; state.onGround=true;
+          state.y=s.y-state.h; state.vy=0; state.onGround=true; state.canJump = true;
 
         } else if(state.vy<0){
 
@@ -1080,7 +1204,7 @@ html = r"""<!DOCTYPE html>
 
   function updateTimer(now){
 
-    if(titleScreen.style.display !== 'none' || levelSelect.style.display !== 'none' || state.won || gamePaused) { lastSecond = now; return; }
+    if(titleScreen.style.display !== 'none' || levelSelect.style.display !== 'none' || skinsScreen.style.display !== 'none' || state.won || gamePaused) { lastSecond = now; return; }
 
     if(now - lastSecond >= 1000){
 
@@ -1108,15 +1232,11 @@ html = r"""<!DOCTYPE html>
 
       unlockWorld2();
 
-      msg.style.display='block';
-
-      msg.innerHTML='Monde 1 fini 🎉<br>Monde 2 débloqué';
+      showEndCard('🎉 Monde 1 fini', 'Monde 2 débloqué • tape pour rejouer');
 
     } else {
 
-      msg.style.display='block';
-
-      msg.innerHTML='Monde 2 fini 👑<br>Tu as complété la v10';
+      showEndCard('👑 Victoire', `Tu as complété la v11 • Score ${state.score}`);
 
     }
 
@@ -1126,15 +1246,37 @@ html = r"""<!DOCTYPE html>
 
   }
 
+  function showEndCard(title, subtitle){
+
+    msg.style.display='block';
+
+    msg.innerHTML = `<div style="font-size:30px;margin-bottom:10px">${title}</div><div style="margin-bottom:10px">${subtitle}</div><div style="font-size:14px;opacity:.9">Tape l’écran pour recommencer</div>`;
+
+  }
+
   function update(){
 
     const now = performance.now();
 
     updateTimer(now);
 
-    if(titleScreen.style.display !== 'none' || levelSelect.style.display !== 'none' || gamePaused) return;
+    if(titleScreen.style.display !== 'none' || levelSelect.style.display !== 'none' || skinsScreen.style.display !== 'none' || gamePaused) return;
 
     if(state.won) return;
+
+    // jump fix: detect press edge and allow jump only when grounded/canJump
+
+    if(state.up && !jumpLatch && state.canJump && !state.inTransition){
+
+      state.vy = -13.2;
+
+      state.onGround = false;
+
+      state.canJump = false;
+
+    }
+
+    jumpLatch = state.up;
 
     if(state.action) tryAction();
 
@@ -1150,13 +1292,13 @@ html = r"""<!DOCTYPE html>
 
     if(state.vx>6.2) state.vx=6.2; if(state.vx<-6.2) state.vx=-6.2;
 
-    if(state.up && state.onGround){ state.vy=-13.2; state.onGround=false; }
-
     state.vy += 0.62; if(state.vy>14) state.vy=14;
 
     state.x += state.vx; collide('x');
 
     state.y += state.vy; collide('y');
+
+    if(!state.onGround && state.vy !== 0) state.canJump = false;
 
     if(state.y > window.innerHeight + 260) loseLife();
 
@@ -1224,7 +1366,7 @@ html = r"""<!DOCTYPE html>
 
 """
 
-path = Path("/mnt/data/cube_plumber_bros_v10.html")
+path = Path("/mnt/data/cube_plumber_bros_v11.html")
 
 path.write_text(html, encoding="utf-8")
 
