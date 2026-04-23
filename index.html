@@ -1,0 +1,629 @@
+from pathlib import Path
+
+html = r"""<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <title>Cube Plumber Bros v3</title>
+  <style>
+    :root{
+      --sky1:#86b8e6;
+      --sky2:#d6efff;
+      --grass:#4caf50;
+      --grass2:#2f8f3b;
+      --dirt:#9a6238;
+      --dirt2:#6c4226;
+      --ui:#2f4359cc;
+      --btn:#b8c9d8cc;
+      --btnBorder:#dce7ef;
+      --shadow:#00000033;
+    }
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:none}
+    html,body{
+      margin:0;padding:0;width:100%;height:100%;overflow:hidden;
+      font-family:Arial, Helvetica, sans-serif;
+      background:#111;
+    }
+    #gameWrap{
+      position:fixed; inset:0;
+      background:linear-gradient(to bottom,var(--sky1),var(--sky2));
+      overflow:hidden;
+    }
+    #hud{
+      position:fixed; left:0; right:0; top:0;
+      padding: max(12px, env(safe-area-inset-top)) 14px 0 14px;
+      display:flex; justify-content:space-between; align-items:flex-start; gap:10px;
+      pointer-events:none; z-index:20;
+    }
+    .pill{
+      background:var(--ui);
+      color:white;
+      padding:12px 18px;
+      border-radius:20px;
+      font-weight:800;
+      font-size:clamp(18px,2.5vw,30px);
+      box-shadow:0 6px 12px var(--shadow);
+      white-space:nowrap;
+    }
+    #banner{
+      position:fixed; left:50%; top:18%;
+      transform:translateX(-50%);
+      background:#ffffffdd;
+      padding:16px 28px;
+      border-radius:999px;
+      font-weight:900;
+      font-size:clamp(16px,2.4vw,28px);
+      box-shadow:0 8px 16px var(--shadow);
+      z-index:19;
+      text-align:center;
+      max-width:82vw;
+    }
+    #game{
+      position:absolute; inset:0; width:100%; height:100%;
+      display:block;
+    }
+    #mobileControls{
+      position:fixed; left:0; right:0; bottom:0;
+      padding:
+        0 18px
+        calc(18px + env(safe-area-inset-bottom))
+        18px;
+      display:flex; justify-content:space-between; align-items:flex-end;
+      z-index:25;
+      pointer-events:none;
+    }
+    .cluster{display:flex; gap:16px; pointer-events:auto;}
+    .btn{
+      width:92px; height:92px; border-radius:24px;
+      background:var(--btn);
+      border:6px solid var(--btnBorder);
+      color:white; font-size:44px; font-weight:900;
+      display:flex; align-items:center; justify-content:center;
+      box-shadow:0 10px 18px var(--shadow);
+      user-select:none;
+    }
+    .btn:active{transform:scale(.96)}
+    #message{
+      position:fixed; left:50%; top:28%;
+      transform:translateX(-50%);
+      z-index:30; padding:16px 22px;
+      border-radius:20px; background:#1b2a3aee; color:#fff;
+      font-size:clamp(18px,2.3vw,28px); font-weight:800;
+      display:none; text-align:center; max-width:85vw;
+    }
+    @media (max-width: 700px){
+      .btn{width:72px;height:72px;font-size:34px;border-width:5px}
+      #banner{top:22%; padding:14px 18px; max-width:76vw}
+      .pill{padding:10px 14px;font-size:16px}
+    }
+  </style>
+</head>
+<body>
+<div id="gameWrap">
+  <canvas id="game"></canvas>
+
+  <div id="hud">
+    <div class="pill" id="coinsText">Pièces: 0</div>
+    <div class="pill" id="livesText">Vies: 3</div>
+  </div>
+
+  <div id="banner">Version visible ✅ herbe + perso jouable • Atteins le drapeau 🚩</div>
+  <div id="message"></div>
+
+  <div id="mobileControls">
+    <div class="cluster">
+      <div class="btn" id="leftBtn">◀</div>
+      <div class="btn" id="rightBtn">▶</div>
+    </div>
+    <div class="cluster">
+      <div class="btn" id="jumpBtn">▲</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const coinsText = document.getElementById('coinsText');
+  const livesText = document.getElementById('livesText');
+  const message = document.getElementById('message');
+
+  let vw = 0, vh = 0, scale = 1;
+  const world = { w: 3400, h: 900, groundY: 720 };
+
+  function resize(){
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    vw = window.innerWidth;
+    vh = window.innerHeight;
+    canvas.width = Math.floor(vw * dpr);
+    canvas.height = Math.floor(vh * dpr);
+    canvas.style.width = vw + 'px';
+    canvas.style.height = vh + 'px';
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    scale = Math.max(1, vw / 900);
+  }
+  resize();
+  addEventListener('resize', resize);
+
+  const keys = { left:false, right:false, up:false };
+
+  function bindKey(code, state){
+    if(['ArrowLeft','KeyA'].includes(code)) keys.left = state;
+    if(['ArrowRight','KeyD'].includes(code)) keys.right = state;
+    if(['ArrowUp','KeyW','Space'].includes(code)) keys.up = state;
+  }
+  addEventListener('keydown', e => { bindKey(e.code, true); if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault(); }, {passive:false});
+  addEventListener('keyup', e => { bindKey(e.code, false); });
+
+  function holdButton(id, on, off){
+    const el = document.getElementById(id);
+    const start = (e)=>{ e.preventDefault(); on(); };
+    const end = (e)=>{ e.preventDefault(); off(); };
+    el.addEventListener('touchstart', start, {passive:false});
+    el.addEventListener('touchend', end, {passive:false});
+    el.addEventListener('touchcancel', end, {passive:false});
+    el.addEventListener('mousedown', start);
+    addEventListener('mouseup', end);
+    el.addEventListener('mouseleave', end);
+  }
+  holdButton('leftBtn', ()=>keys.left=true, ()=>keys.left=false);
+  holdButton('rightBtn', ()=>keys.right=true, ()=>keys.right=false);
+  holdButton('jumpBtn', ()=>keys.up=true, ()=>keys.up=false);
+
+  const solids = [];
+  const spikes = [];
+  const coins = [];
+  const enemies = [];
+  const clouds = [];
+  const bushes = [];
+  const pipes = [];
+  const movingPlatforms = [];
+  const flag = { x: 3180, y: world.groundY - 220, w: 16, h: 220 };
+  const checkpoint = { x: 120, y: world.groundY - 160 };
+
+  function rect(x,y,w,h,type='block'){ solids.push({x,y,w,h,type}); }
+  function spike(x,y,w,h){ spikes.push({x,y,w,h}); }
+  function coin(x,y){ coins.push({x,y,r:12,t:0,collected:false}); }
+  function enemy(x,y,minX,maxX){ enemies.push({x,y,w:40,h:38,vx:1.1,minX,maxX,dead:false}); }
+  function bush(x,y,s){ bushes.push({x,y,s}); }
+  function cloud(x,y,s){ clouds.push({x,y,s}); }
+  function pipe(x,y,w,h){ pipes.push({x,y,w,h}); solids.push({x,y,w,h,type:'pipe'}); }
+  function moving(x,y,w,h,minX,maxX,speed){ movingPlatforms.push({x,y,w,h,minX,maxX,vx:speed,startX:x}); }
+
+  for(let i=0;i<12;i++) cloud(200 + i*280, 110 + (i%3)*40, 0.8 + (i%3)*0.2);
+  for(let i=0;i<18;i++) bush(80+i*180, world.groundY-24, 0.8 + (i%4)*0.15);
+
+  rect(0, world.groundY, world.w, world.h - world.groundY, 'ground');
+
+  // platforms and decor
+  rect(260, 620, 120, 28);
+  rect(420, 560, 120, 28);
+  rect(560, 500, 120, 28);
+  rect(780, 640, 160, 28);
+  rect(1000, 580, 120, 28);
+  rect(1180, 520, 120, 28);
+
+  pipe(900, world.groundY-100, 90, 100);
+  pipe(1550, world.groundY-130, 100, 130);
+  pipe(2500, world.groundY-150, 110, 150);
+
+  rect(1370, 620, 120, 28);
+  rect(1520, 560, 120, 28);
+  rect(1700, 500, 120, 28);
+
+  moving(1900, 580, 120, 24, 1900, 2200, 1.2);
+  moving(2300, 500, 120, 24, 2300, 2550, 1.5);
+
+  rect(2140, 650, 140, 28);
+  rect(2620, 580, 120, 28);
+  rect(2790, 520, 120, 28);
+  rect(2960, 460, 120, 28);
+
+  spike(685, world.groundY-34, 90, 34);
+  spike(1295, world.groundY-34, 120, 34);
+  spike(1810, world.groundY-34, 80, 34);
+  spike(2420, world.groundY-34, 120, 34);
+
+  [320,470,610,820,1040,1220,1390,1540,1720,1930,2060,2330,2640,2810,2980].forEach((x,i)=>{
+    coin(x, 450 + (i%3)*-40 + 90);
+  });
+
+  enemy(610, world.groundY-38, 540, 820);
+  enemy(1450, world.groundY-38, 1380, 1700);
+  enemy(2240, world.groundY-38, 2140, 2460);
+  enemy(2860, world.groundY-38, 2780, 3070);
+
+  const player = {
+    x: checkpoint.x,
+    y: checkpoint.y,
+    w: 42,
+    h: 58,
+    vx: 0,
+    vy: 0,
+    speed: 0.75,
+    maxSpeed: 6.2,
+    jumpPower: 13.4,
+    onGround: false,
+    face: 1,
+    lives: 3,
+    coins: 0,
+    invuln: 0,
+    win: false
+  };
+
+  function intersects(a,b){
+    return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y;
+  }
+
+  function hurt(){
+    if(player.invuln > 0 || player.win) return;
+    player.lives--;
+    player.invuln = 110;
+    livesText.textContent = 'Vies: ' + player.lives;
+    if(player.lives <= 0){
+      showMessage('Perdu 😵‍💫<br>Tap ou appuie sur R pour recommencer');
+    }
+    respawn();
+  }
+
+  function respawn(){
+    player.x = checkpoint.x;
+    player.y = checkpoint.y;
+    player.vx = 0;
+    player.vy = 0;
+  }
+
+  function resetGame(){
+    player.x = checkpoint.x;
+    player.y = checkpoint.y;
+    player.vx = 0;
+    player.vy = 0;
+    player.lives = 3;
+    player.coins = 0;
+    player.invuln = 0;
+    player.win = false;
+    coins.forEach(c => c.collected = false);
+    enemies.forEach(e => { e.dead = false; });
+    coinsText.textContent = 'Pièces: 0';
+    livesText.textContent = 'Vies: 3';
+    message.style.display = 'none';
+  }
+
+  addEventListener('keydown', e => { if(e.code === 'KeyR') resetGame(); });
+  addEventListener('pointerdown', () => { if(player.lives <= 0 || player.win) resetGame(); }, {passive:true});
+
+  function showMessage(html){
+    message.innerHTML = html;
+    message.style.display = 'block';
+  }
+
+  function solidCollisions(list){
+    for(const s of list){
+      if(!intersects(player, s)) continue;
+
+      const prevBottom = player.y - player.vy + player.h;
+      const prevTop = player.y - player.vy;
+      const prevRight = player.x - player.vx + player.w;
+      const prevLeft = player.x - player.vx;
+
+      if(prevBottom <= s.y){
+        player.y = s.y - player.h;
+        player.vy = 0;
+        player.onGround = true;
+      } else if(prevTop >= s.y + s.h){
+        player.y = s.y + s.h;
+        player.vy = 0.2;
+      } else if(prevRight <= s.x){
+        player.x = s.x - player.w;
+        player.vx = 0;
+      } else if(prevLeft >= s.x + s.w){
+        player.x = s.x + s.w;
+        player.vx = 0;
+      }
+    }
+  }
+
+  function update(){
+    if(player.win || player.lives <= 0) return;
+
+    player.onGround = false;
+    if(keys.left) { player.vx -= player.speed; player.face = -1; }
+    if(keys.right){ player.vx += player.speed; player.face = 1; }
+    if(!keys.left && !keys.right) player.vx *= 0.84;
+    player.vx = Math.max(-player.maxSpeed, Math.min(player.maxSpeed, player.vx));
+
+    if(keys.up && player.onGround){
+      // no-op before ground state refresh
+    }
+
+    player.vy += 0.62;
+    if(player.vy > 14) player.vy = 14;
+
+    // Horizontal then vertical move
+    player.x += player.vx;
+
+    for(const mp of movingPlatforms){
+      mp.x += mp.vx;
+      if(mp.x < mp.minX || mp.x + mp.w > mp.maxX) mp.vx *= -1;
+    }
+
+    solidCollisions(solids);
+    solidCollisions(movingPlatforms);
+
+    player.y += player.vy;
+    solidCollisions(solids);
+    solidCollisions(movingPlatforms);
+
+    // jump after collision update if grounded
+    if(keys.up && player.onGround){
+      player.vy = -player.jumpPower;
+      player.onGround = false;
+      player.y += player.vy;
+    }
+
+    // Carry by moving platforms
+    for(const mp of movingPlatforms){
+      const standing = player.y + player.h >= mp.y - 2 && player.y + player.h <= mp.y + 12 &&
+        player.x + player.w > mp.x && player.x < mp.x + mp.w && player.vy >= 0;
+      if(standing){
+        player.x += mp.vx;
+      }
+    }
+
+    if(player.x < 0) player.x = 0;
+    if(player.x + player.w > world.w) player.x = world.w - player.w;
+    if(player.y > world.h + 200) hurt();
+
+    for(const s of spikes){
+      if(intersects(player, s)) hurt();
+    }
+
+    for(const c of coins){
+      c.t += 0.12;
+      const hit = {
+        x: c.x - c.r, y: c.y - c.r, w: c.r*2, h: c.r*2
+      };
+      if(!c.collected && intersects(player, hit)){
+        c.collected = true;
+        player.coins++;
+        coinsText.textContent = 'Pièces: ' + player.coins;
+      }
+    }
+
+    for(const e of enemies){
+      if(e.dead) continue;
+      e.x += e.vx;
+      if(e.x < e.minX || e.x + e.w > e.maxX) e.vx *= -1;
+
+      if(intersects(player, e)){
+        const playerBottom = player.y + player.h;
+        if(player.vy > 1 && playerBottom - e.y < 24){
+          e.dead = true;
+          player.vy = -9;
+        } else {
+          hurt();
+        }
+      }
+    }
+
+    if(player.invuln > 0) player.invuln--;
+
+    const flagRect = {x: flag.x, y: flag.y, w: 28, h: flag.h};
+    if(intersects(player, flagRect)){
+      player.win = true;
+      showMessage('Bravooo 🎉<br>Tu as fini le niveau');
+    }
+  }
+
+  function drawCloud(x,y,s,cx){
+    const px = x - cx*0.35;
+    ctx.fillStyle = '#ffffffcc';
+    ctx.beginPath();
+    ctx.arc(px, y, 25*s, 0, Math.PI*2);
+    ctx.arc(px+26*s, y-14*s, 30*s, 0, Math.PI*2);
+    ctx.arc(px+62*s, y, 24*s, 0, Math.PI*2);
+    ctx.arc(px+28*s, y+10*s, 28*s, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  function drawBush(x,y,s,cx){
+    const px = x - cx;
+    ctx.fillStyle = '#2f9c40';
+    for(let i=0;i<4;i++){
+      ctx.beginPath();
+      ctx.arc(px + i*22*s, y, 18*s, 0, Math.PI*2);
+      ctx.fill();
+    }
+    ctx.fillStyle = '#48bb5a';
+    ctx.beginPath();
+    ctx.arc(px+18*s, y-6*s, 12*s, 0, Math.PI*2);
+    ctx.arc(px+52*s, y-5*s, 10*s, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  function drawBlock(b,cx){
+    const x = b.x - cx, y = b.y;
+    if(b.type === 'ground'){
+      // dirt
+      ctx.fillStyle = '#8c5a35';
+      ctx.fillRect(x,y,b.w,b.h);
+      // grass top
+      ctx.fillStyle = '#3cae44';
+      ctx.fillRect(x,y,b.w,18);
+      ctx.fillStyle = '#74d164';
+      for(let i=0;i<b.w;i+=18){
+        ctx.fillRect(x+i, y+2, 10, 5);
+      }
+      // dirt spots
+      ctx.fillStyle = '#6e4528';
+      for(let r=0;r<Math.min(60, b.w/40);r++){
+        ctx.fillRect(x + (r*53)%b.w, y+26 + (r*31)%Math.max(30,b.h-40), 16, 10);
+      }
+      return;
+    }
+    if(b.type === 'pipe'){
+      ctx.fillStyle = '#1f9c45';
+      ctx.fillRect(x,y,b.w,b.h);
+      ctx.fillStyle = '#3fd16a';
+      ctx.fillRect(x-8,y,b.w+16,20);
+      ctx.fillStyle = '#187636';
+      ctx.fillRect(x+b.w-14,y+20,14,b.h-20);
+      return;
+    }
+    ctx.fillStyle = '#bf7f3c';
+    ctx.fillRect(x,y,b.w,b.h);
+    ctx.strokeStyle = '#7c4b1c';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(x,y,b.w,b.h);
+    ctx.strokeStyle = '#d99c53';
+    ctx.beginPath();
+    ctx.moveTo(x+8,y+8); ctx.lineTo(x+b.w-8,y+8);
+    ctx.moveTo(x+8,y+18); ctx.lineTo(x+b.w-8,y+18);
+    ctx.stroke();
+  }
+
+  function drawSpike(s,cx){
+    const x=s.x-cx,y=s.y;
+    ctx.fillStyle = '#d7d7d7';
+    const n = Math.max(2, Math.floor(s.w/22));
+    const sw = s.w/n;
+    for(let i=0;i<n;i++){
+      ctx.beginPath();
+      ctx.moveTo(x + i*sw, y+s.h);
+      ctx.lineTo(x + i*sw + sw/2, y);
+      ctx.lineTo(x + i*sw + sw, y+s.h);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+
+  function drawCoin(c,cx){
+    if(c.collected) return;
+    const bob = Math.sin(c.t)*4;
+    ctx.save();
+    ctx.translate(c.x-cx, c.y+bob);
+    ctx.fillStyle = '#ffd54d';
+    ctx.beginPath(); ctx.arc(0,0,c.r,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#c99700'; ctx.lineWidth = 3; ctx.stroke();
+    ctx.fillStyle = '#fff2a8';
+    ctx.fillRect(-3,-9,6,18);
+    ctx.restore();
+  }
+
+  function drawEnemy(e,cx){
+    if(e.dead) return;
+    const x=e.x-cx,y=e.y;
+    ctx.fillStyle = '#8a4f1d';
+    ctx.fillRect(x,y+10,e.w,e.h-10);
+    ctx.fillStyle = '#9c6230';
+    ctx.fillRect(x+4,y,e.w-8,16);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(x+8,y+12,8,8);
+    ctx.fillRect(x+24,y+12,8,8);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(x+11,y+15,3,3);
+    ctx.fillRect(x+27,y+15,3,3);
+    ctx.fillStyle = '#5b2f10';
+    ctx.fillRect(x+7,y+28,e.w-14,6);
+  }
+
+  function drawPlayer(cx){
+    if(player.invuln > 0 && Math.floor(player.invuln/6)%2===0) return;
+    const x=player.x-cx, y=player.y;
+    // body
+    ctx.fillStyle = '#e53b2c';
+    ctx.fillRect(x+10,y+20,22,24);
+    // head
+    ctx.fillStyle = '#f3c39b';
+    ctx.fillRect(x+8,y+8,26,18);
+    // hat
+    ctx.fillStyle = '#cf2419';
+    ctx.fillRect(x+4,y,34,10);
+    ctx.fillRect(x+2,y+8,24,7);
+    // overalls
+    ctx.fillStyle = '#2370d8';
+    ctx.fillRect(x+8,y+32,28,24);
+    ctx.fillStyle = '#1f5eb4';
+    ctx.fillRect(x+10,y+34,6,10);
+    ctx.fillRect(x+28,y+34,6,10);
+    // arms
+    ctx.fillStyle = '#f3c39b';
+    ctx.fillRect(x + (player.face===1?31:3), y+24, 8, 16);
+    ctx.fillRect(x + (player.face===1?3:31), y+26, 8, 14);
+    // shoes
+    ctx.fillStyle = '#5a2d12';
+    ctx.fillRect(x+8,y+52,12,6);
+    ctx.fillRect(x+24,y+52,12,6);
+    // moustache
+    ctx.fillStyle = '#3a2115';
+    ctx.fillRect(x+14,y+18,14,4);
+    // eyes
+    ctx.fillStyle = '#111';
+    ctx.fillRect(x+16,y+12,3,5);
+    ctx.fillRect(x+23,y+12,3,5);
+  }
+
+  function drawFlag(cx){
+    const x = flag.x - cx, y = flag.y;
+    ctx.fillStyle = '#ddd';
+    ctx.fillRect(x, y, flag.w, flag.h);
+    ctx.fillStyle = '#e53935';
+    ctx.beginPath();
+    ctx.moveTo(x+flag.w, y+10);
+    ctx.lineTo(x+flag.w+60, y+28);
+    ctx.lineTo(x+flag.w, y+46);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,vw,vh);
+
+    // sky gradient already by CSS, draw sun
+    ctx.fillStyle = '#ffe082cc';
+    ctx.beginPath();
+    ctx.arc(vw-120, 110, 46, 0, Math.PI*2);
+    ctx.fill();
+
+    const camX = Math.max(0, Math.min(world.w - vw, player.x - vw*0.32));
+
+    for(const c of clouds) drawCloud(c.x,c.y,c.s,camX);
+    for(const b of bushes) drawBush(b.x,b.y,b.s,camX);
+
+    for(const s of solids) drawBlock(s, camX);
+    for(const p of movingPlatforms) drawBlock({...p, type:'block'}, camX);
+    for(const s of spikes) drawSpike(s, camX);
+    for(const c of coins) drawCoin(c, camX);
+    for(const e of enemies) drawEnemy(e, camX);
+    drawFlag(camX);
+    drawPlayer(camX);
+
+    // mini hint line near player spawn
+    if(player.x < 320){
+      ctx.fillStyle = '#ffffffdd';
+      ctx.font = 'bold 20px Arial';
+      ctx.fillText('Va vers la droite ➜', 120-camX, world.groundY-120);
+    }
+  }
+
+  let last = 0;
+  function loop(ts){
+    const dt = Math.min(32, ts - last); last = ts;
+    // fixed-ish updates for consistency
+    const steps = Math.max(1, Math.round(dt / 16));
+    for(let i=0;i<steps;i++) update();
+    draw();
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
+"""
+
+path = Path("/mnt/data/cube_plumber_bros_v3.html")
+path.write_text(html, encoding="utf-8")
+print(f"Saved {path}")
